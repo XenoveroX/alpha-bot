@@ -2,8 +2,8 @@ import requests
 import time
 
 # --- إعدادات المستخدم ---
-TELEGRAM_TOKEN = '8629306566:AAFrEt62ZY0hY7C33wz8fmdMyt3mTH0RiII'
-TELEGRAM_CHAT_ID = '1201284811'
+TELEGRAM_TOKEN = 'TELEGRAM_TOKEN'
+TELEGRAM_CHAT_ID = 'TELEGRAM_CHAT_ID'
 CHECK_INTERVAL = 30  # الفحص كل 30 ثانية
 MIN_VOLUME_H1 = 5000  # الحد الأدنى لحجم التداول في الساعة للاهتمام بالعملة
 CHAIN_ID = "56" # كود شبكة BSC (الموجودة في صورك)
