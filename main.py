@@ -1,9 +1,10 @@
 import requests
 import time
+import os  # << تأكد من إضافة هذا السطر الصغير هنا
 
-# --- إعدادات المستخدم ---
-TELEGRAM_TOKEN = 'TELEGRAM_TOKEN'
-TELEGRAM_CHAT_ID = 'TELEGRAM_CHAT_ID'
+# إعدادات المستخدم من Variables
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 CHECK_INTERVAL = 30  # الفحص كل 30 ثانية
 MIN_VOLUME_H1 = 5000  # الحد الأدنى لحجم التداول في الساعة للاهتمام بالعملة
 CHAIN_ID = "56" # كود شبكة BSC (الموجودة في صورك)
