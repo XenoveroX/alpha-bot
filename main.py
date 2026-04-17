@@ -82,7 +82,13 @@ def scan_alpha():
         print(f"حدث خطأ في المسح: {e}")
 
 if __name__ == "__main__":
-    send_telegram_msg("🤖 بدأ بوت 'الفا' بالعمل.. رادار الانفجارات مفعل!")
+    # أضف هذه الأسطر مؤقتاً للتأكد من الربط
+    test_token = os.getenv('TELEGRAM_TOKEN')
+    test_id = os.getenv('TELEGRAM_CHAT_ID')
+    print(f"Token: {test_token[:5]}... | ID: {test_id}") # سيطبع أول 5 حروف من التوكن للتأكد
+    
+    send_telegram_msg("🚨 اختبار الربط: إذا وصلتك هذه الرسالة فإن البوت يعمل!")
+    
     while True:
         scan_alpha()
         time.sleep(CHECK_INTERVAL)
