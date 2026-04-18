@@ -2,15 +2,15 @@ import requests
 import time
 import os
 
-# --- الإعدادات الاحترافية ---
+# --- الإعدادات النهائية المطابقة للصورة ---
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-# معايير "النمو المنظم" (نمط PALU / JANITOR)
 TARGET_CHAIN = "bsc"
-MIN_LIQ = 15000             # سيولة "أرضية" لضمان عدم الانهيار المفاجئ
-MAX_MCAP = 400000           # الدخول في مرحلة الانفجار الأولى
-CHECK_INTERVAL = 15         # فحص سريع لعدم فوات أي فرصة
+# قمنا برفع الماركت كاب لـ 5 مليون لمواكبة عملات مثل PUP
+MAX_MCAP = 5000000          
+MIN_LIQ = 10000             # سيولة مرنة لاقتناص العملات الصينية في بدايتها
+CHECK_INTERVAL = 10         # مسح سريع جداً
 
 def send_telegram_msg(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -18,13 +18,13 @@ def send_telegram_msg(message):
     try: requests.post(url, json=payload, timeout=5)
     except: pass
 
-def scan_professional_momentum():
-    # استخدام API الـ Top Boosts لاقتناص العملات التي يدعمها "صناع السوق" حالياً
+def scan_trending_master():
+    # البحث في قائمة "الأكثر تداولاً" (Volume) وليس فقط الـ Boosts
     url = "https://api.dexscreener.com/token-boosts/top/v1"
     try:
         response = requests.get(url, timeout=10).json()
         
-        for item in response[:35]:
+        for item in response[:50]:
             if item.get('chainId') != TARGET_CHAIN: continue
             
             addr = item.get('tokenAddress')
@@ -35,48 +35,42 @@ def scan_professional_momentum():
             p = pairs[0]
             mcap = float(p.get('fdv', 0))
             liq = float(p.get('liquidity', {}).get('usd', 0))
+            h24_change = float(p.get('priceChange', {}).get('h24', 0))
             h1_change = float(p.get('priceChange', {}).get('h1', 0))
-            m5_change = float(p.get('priceChange', {}).get('m5', 0))
-            
-            # --- استراتيجية "الإتقان" (The Mastery Logic) ---
-            # 1. شرط "الاستمرارية": صعود ساعة ممتاز (>12%) وصعود 5 دقائق حيوي (>2%)
-            # 2. شرط "السيولة النشطة": السيولة كافية للشراء والبيع دون انزلاق سعري كبير
-            # 3. استبعاد العملات في "مرحلة الهبوط" (مثل BLESS حالياً) عبر شرط m5_change > 0
-            if MIN_LIQ < liq < 250000 and 20000 < mcap < MAX_MCAP:
-                if h1_change > 12 and m5_change > 2:
+
+            # --- استراتيجية مطابقة الصورة ---
+            # 1. الماركت كاب بين 10 آلاف و 5 مليون (نطاق واسع)
+            # 2. البحث عن العملات التي صعدت في 24 ساعة (h24 > 20%) 
+            # 3. التأكد من أن الزخم مستمر الآن (h1_change > 2%)
+            if 10000 < mcap < MAX_MCAP and liq > MIN_LIQ:
+                if h24_change > 20 and h1_change > 2:
                     
-                    # فحص الأمان المتقدم (GoPlus)
+                    # فحص الأمان
                     sec_res = requests.get(f"https://api.gopluslabs.io/api/v1/token_security/56?contract_addresses={addr}", timeout=5).json()
                     sec = sec_res.get('result', {}).get(addr.lower(), {})
                     
-                    if sec.get('is_honeypot') == '1' or float(sec.get('sell_tax', 0)) > 10: 
-                        continue
-
-                    # تمييز العملات ذات الطابع الصيني أو الأسماء القوية
-                    is_alpha_name = any(k in p['baseToken']['symbol'].lower() for k in ["pa", "pu", "jan", "shang", "dragon"])
-                    header = "🏮 *Alpha Trend (Chinese Pattern)* 🏮" if is_alpha_name else "🚀 *Momentum Breakout*"
+                    if sec.get('is_honeypot') == '1': continue
 
                     msg = (
-                        f"{header}\n\n"
+                        f"🔥 *ترند مكتشف (نمط PUP/JANITOR)* 🔥\n\n"
                         f"💎 العملة: `{p['baseToken']['symbol']}`\n"
-                        f"📈 صعود (ساعة): %{h1_change}\n"
-                        f"📊 صعود (5 دقائق): %{m5_change} (تأكيد الاستمرار)\n"
+                        f"📈 صعود 24 ساعة: %{h24_change}\n"
+                        f"📊 صعود الساعة: %{h1_change} (مستمر)\n"
                         f"💰 الماركت كاب: ${mcap:,.0f}\n"
                         f"💧 السيولة: ${liq:,.0f}\n"
-                        f"🛡️ الأمان: ✅ سليم | ضريبة البيع: {sec.get('sell_tax')}% \n"
-                        f"🔒 السيولة: {'🔥 محروقة' if float(sec.get('lp_burned_percent', 0)) > 50 else '🔒 مقفولة'}\n\n"
-                        f"🔗 [اقتناص الفرصة](https://dexscreener.com/bsc/{addr})"
+                        f"🛡️ الأمان: ✅ سليم | Tax: {sec.get('sell_tax', '0')}% \n\n"
+                        f"🔗 [رابط الشراء المباشر](https://pancakeswap.finance/swap?outputCurrency={addr})\n"
+                        f"📊 [الشارت](https://dexscreener.com/bsc/{addr})"
                     )
                     
                     send_telegram_msg(msg)
-                    print(f"🎯 تم اكتشاف عملة بنمط صاعد: {p['baseToken']['symbol']}")
-                    time.sleep(30) # منع التكرار لتركيزك على الصفقة
+                    time.sleep(15)
                     
     except Exception as e:
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    send_telegram_msg("🕵️‍♂️ رادار 'إتقان الصعود' مفعّل.. استبعاد الهبوط واقتناص الزخم الحقيقي!")
+    send_telegram_msg("🕵️‍♂️ الرادار المحدث (V7) لمطابقة عملات الترند بدأ العمل الآن...")
     while True:
-        scan_professional_momentum()
+        scan_trending_master()
         time.sleep(CHECK_INTERVAL)
