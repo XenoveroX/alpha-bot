@@ -2,15 +2,15 @@ import requests
 import time
 import os
 
-# --- الإعدادات الفائقة ---
+# --- الإعدادات الاحترافية ---
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-# معايير "الفا" الصارمة لشبكة BNB
+# معايير "النمو المنظم" (نمط PALU / JANITOR)
 TARGET_CHAIN = "bsc"
-MIN_LIQ = 18000             # سيولة قوية لضمان عدم الانهيار السريع
-MAX_MCAP = 450000           # الدخول المبكر قبل الانفجار الكبير
-VOL_ACCELERATION = 1.5      # حجم تداول الـ 5 دقائق يجب أن يكون 1.5 مرة من المتوسط
+MIN_LIQ = 15000             # سيولة "أرضية" لضمان عدم الانهيار المفاجئ
+MAX_MCAP = 400000           # الدخول في مرحلة الانفجار الأولى
+CHECK_INTERVAL = 15         # فحص سريع لعدم فوات أي فرصة
 
 def send_telegram_msg(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -18,27 +18,13 @@ def send_telegram_msg(message):
     try: requests.post(url, json=payload, timeout=5)
     except: pass
 
-def get_deep_security(addr):
-    """تحليل أمان عميق (GoPlus API)"""
-    try:
-        res = requests.get(f"https://api.gopluslabs.io/api/v1/token_security/56?contract_addresses={addr}", timeout=5).json()
-        data = res.get('result', {}).get(addr.lower(), {})
-        # شروط الأمان القاسية
-        is_safe = (
-            data.get('is_honeypot') == '0' and 
-            data.get('is_open_source') == '1' and
-            float(data.get('sell_tax', 0)) < 15 # ضريبة البيع أقل من 15%
-        )
-        return is_safe, data
-    except: return False, {}
-
-def scan_bnb_master():
-    # سحب العملات التي بدأت "تغلي" الآن في الـ Trending
+def scan_professional_momentum():
+    # استخدام API الـ Top Boosts لاقتناص العملات التي يدعمها "صناع السوق" حالياً
     url = "https://api.dexscreener.com/token-boosts/top/v1"
     try:
         response = requests.get(url, timeout=10).json()
         
-        for item in response[:50]: # فحص أكبر 50 عملة مرشحة للترند
+        for item in response[:35]:
             if item.get('chainId') != TARGET_CHAIN: continue
             
             addr = item.get('tokenAddress')
@@ -49,44 +35,48 @@ def scan_bnb_master():
             p = pairs[0]
             mcap = float(p.get('fdv', 0))
             liq = float(p.get('liquidity', {}).get('usd', 0))
+            h1_change = float(p.get('priceChange', {}).get('h1', 0))
+            m5_change = float(p.get('priceChange', {}).get('m5', 0))
             
-            # تحليل التسارع (حجم 5 دقائق مقابل حجم ساعة)
-            v5 = float(p.get('volume', {}).get('m5', 0))
-            v1h = float(p.get('volume', {}).get('h1', 0))
-            
-            # إذا كانت السيولة والماركت كاب ضمن النطاق الذهبي
-            if 15000 < mcap < MAX_MCAP and liq > MIN_LIQ:
-                # خوارزمية التسارع: هل بدأ ضخ السيولة الآن؟
-                if v5 > (v1h / 12) * VOL_ACCELERATION:
+            # --- استراتيجية "الإتقان" (The Mastery Logic) ---
+            # 1. شرط "الاستمرارية": صعود ساعة ممتاز (>12%) وصعود 5 دقائق حيوي (>2%)
+            # 2. شرط "السيولة النشطة": السيولة كافية للشراء والبيع دون انزلاق سعري كبير
+            # 3. استبعاد العملات في "مرحلة الهبوط" (مثل BLESS حالياً) عبر شرط m5_change > 0
+            if MIN_LIQ < liq < 250000 and 20000 < mcap < MAX_MCAP:
+                if h1_change > 12 and m5_change > 2:
                     
-                    is_safe, sec_data = get_deep_security(addr)
-                    if not is_safe: continue
+                    # فحص الأمان المتقدم (GoPlus)
+                    sec_res = requests.get(f"https://api.gopluslabs.io/api/v1/token_security/56?contract_addresses={addr}", timeout=5).json()
+                    sec = sec_res.get('result', {}).get(addr.lower(), {})
+                    
+                    if sec.get('is_honeypot') == '1' or float(sec.get('sell_tax', 0)) > 10: 
+                        continue
 
-                    # تصنيف نوع الفرصة بناءً على طلبك (PALU/PUP Style)
-                    is_chinese = any(k in p['baseToken']['symbol'].lower() for k in ["pa", "pu", "jan", "shang", "dragon"])
-                    tag = "🏮 *عملة بنمط صيني (فرصة عالية)*" if is_chinese else "⚡ *تسارع سيولة مكتشف*"
+                    # تمييز العملات ذات الطابع الصيني أو الأسماء القوية
+                    is_alpha_name = any(k in p['baseToken']['symbol'].lower() for k in ["pa", "pu", "jan", "shang", "dragon"])
+                    header = "🏮 *Alpha Trend (Chinese Pattern)* 🏮" if is_alpha_name else "🚀 *Momentum Breakout*"
 
                     msg = (
-                        f"{tag}\n\n"
+                        f"{header}\n\n"
                         f"💎 العملة: `{p['baseToken']['symbol']}`\n"
+                        f"📈 صعود (ساعة): %{h1_change}\n"
+                        f"📊 صعود (5 دقائق): %{m5_change} (تأكيد الاستمرار)\n"
                         f"💰 الماركت كاب: ${mcap:,.0f}\n"
                         f"💧 السيولة: ${liq:,.0f}\n"
-                        f"📈 نمو السعر (ساعة): %{p.get('priceChange', {}).get('h1', 0)}\n"
-                        f"📊 تسارع التداول (5د): ${v5:,.0f}\n"
-                        f"🛡️ الأمان: ✅ سليم | ضريبة: {sec_data.get('sell_tax', '0')}% \n"
-                        f"🔒 السيولة: {'محروقة 🔥' if float(sec_data.get('lp_burned_percent', 0)) > 50 else 'مقفولة 🔒'}\n\n"
-                        f"🔗 [اقتنص الفرصة من هنا](https://dexscreener.com/bsc/{addr})"
+                        f"🛡️ الأمان: ✅ سليم | ضريبة البيع: {sec.get('sell_tax')}% \n"
+                        f"🔒 السيولة: {'🔥 محروقة' if float(sec.get('lp_burned_percent', 0)) > 50 else '🔒 مقفولة'}\n\n"
+                        f"🔗 [اقتناص الفرصة](https://dexscreener.com/bsc/{addr})"
                     )
                     
                     send_telegram_msg(msg)
-                    print(f"🎯 تم رصد هدف BNB: {p['baseToken']['symbol']}")
-                    time.sleep(15) 
+                    print(f"🎯 تم اكتشاف عملة بنمط صاعد: {p['baseToken']['symbol']}")
+                    time.sleep(30) # منع التكرار لتركيزك على الصفقة
                     
     except Exception as e:
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    send_telegram_msg("🏆 بدأ نظام Master Sniper V4 (تحدي BNB).. الرادار في أقصى حساسية!")
+    send_telegram_msg("🕵️‍♂️ رادار 'إتقان الصعود' مفعّل.. استبعاد الهبوط واقتناص الزخم الحقيقي!")
     while True:
-        scan_bnb_master()
-        time.sleep(10)
+        scan_professional_momentum()
+        time.sleep(CHECK_INTERVAL)
