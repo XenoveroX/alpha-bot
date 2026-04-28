@@ -2,15 +2,9 @@ import requests
 import time
 import os
 
-# --- إعدادات Binance Alpha Sniper ---
+# --- إعدادات وضع القوة (V11) ---
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-
-TARGET_CHAIN = "bsc"
-# رفعنا السقف لـ 250 مليون دولار لمواكبة العملات التي في صورتك
-MAX_MCAP = 250000000        
-# رفعنا حد السيولة لـ 50 ألف دولار للتأكد أنها عملات "ثقيلة" وآمنة
-MIN_LIQUIDITY = 50000       
 
 def send_telegram_msg(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -18,14 +12,14 @@ def send_telegram_msg(message):
     try: requests.post(url, json=payload, timeout=5)
     except: pass
 
-def scan_binance_alpha_style():
-    # البحث عن العملات التي تمتلك أعلى حجم تداول (Volume) لضمان مطابقة الصورة
+def scan_god_mode():
+    # البحث في العملات الأكثر "دفعاً" للترند (Paid Boosts) لضمان مطابقة قائمة Alpha
     url = "https://api.dexscreener.com/token-boosts/top/v1"
     try:
         response = requests.get(url, timeout=10).json()
         
-        for item in response[:60]: # فحص قائمة أطول
-            if item.get('chainId') != TARGET_CHAIN: continue
+        for item in response[:80]: # فحص قائمة موسعة جداً
+            if item.get('chainId') != "bsc": continue
             
             addr = item.get('tokenAddress')
             m_res = requests.get(f"https://api.dexscreener.com/latest/dex/tokens/{addr}", timeout=10).json()
@@ -35,37 +29,38 @@ def scan_binance_alpha_style():
             p = pairs[0]
             mcap = float(p.get('fdv', 0))
             liq = float(p.get('liquidity', {}).get('usd', 0))
+            h24_change = float(p.get('priceChange', {}).get('h24', 0))
             h1_change = float(p.get('priceChange', {}).get('h1', 0))
-            h24_vol = float(p.get('volume', {}).get('h24', 0))
+            vol_24h = float(p.get('volume', {}).get('h24', 0))
 
-            # --- خوارزمية مطابقة الصورة ---
-            # 1. البحث عن العملات ذات حجم التداول المليوني (مثل WAI و RAVE)
-            # 2. التأكد من وجود صعود مستمر في آخر ساعة (h1_change > 3%)
-            # 3. استبعاد العملات الصغيرة جداً التي لا تصل لـ Binance Alpha
-            if liq > MIN_LIQUIDITY and mcap < MAX_MCAP:
-                if h24_vol > 500000 and h1_change > 3:
+            # --- استراتيجية "مطابقة الصورة" (ZKJ & KLINK Style) ---
+            # 1. الماركت كاب: نقبل حتى 150 مليون دولار (ليشمل ZKJ)
+            # 2. حجم التداول: يجب أن يكون ضخماً (> 150k$) لضمان أنها ليست عملة وهمية
+            # 3. الصعود اليومي: نبحث عن العملات التي انفجرت فعلياً (> 30%)
+            # 4. زخم الساعة: صعود مستمر (> 2%) لضمان أنك لا تشتري عند الهبوط
+            if liq > 20000 and 50000 < mcap < 150000000:
+                if h24_change > 30 and h1_change > 2 and vol_24h > 150000:
                     
                     msg = (
-                        f"🔥 *إشارة نمط Binance Alpha* 🔥\n\n"
+                        f"🚀 *إنذار انفجار (نمط ZKJ/KLINK)* 🚀\n\n"
                         f"💎 العملة: `{p['baseToken']['symbol']}`\n"
-                        f"📈 صعود الساعة: %{h1_change}\n"
-                        f"📊 حجم تداول (24س): ${h24_vol:,.0f}\n"
+                        f"🔥 صعود 24 ساعة: %{h24_change}\n"
+                        f"📈 زخم الساعة الحالية: %{h1_change}\n"
                         f"💰 الماركت كاب: ${mcap:,.0f}\n"
-                        f"💧 السيولة: ${liq:,.0f}\n\n"
+                        f"📊 تداول (24س): ${vol_24h:,.0f}\n\n"
                         f"📋 *عنوان العقد (لصقه في Web3 Wallet):*\n`{addr}`\n\n"
                         f"🔗 [الشارت](https://dexscreener.com/bsc/{addr})\n"
-                        f"🛒 [شراء مباشر](https://pancakeswap.finance/swap?outputCurrency={addr})"
+                        f"🛒 [تبديل سريع (Swap)](https://pancakeswap.finance/swap?outputCurrency={addr})"
                     )
                     
                     send_telegram_msg(msg)
-                    # منع التكرار: ننتظر قليلاً قبل البحث عن العملة التالية
-                    time.sleep(30)
+                    time.sleep(15) # سرعة في الإرسال لاقتناص التالي
                     
     except Exception as e:
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    send_telegram_msg("🎯 تم تفعيل رادار Binance Alpha المحدث.. جاري اقتناص العملات المليونية!")
+    send_telegram_msg("⚠️ *تم تفعيل وضع الـ God Mode V11*.. رادار الملايين والعملات الانفجارية يعمل الآن!")
     while True:
-        scan_binance_alpha_style()
-        time.sleep(15)
+        scan_god_mode()
+        time.sleep(10) # فحص متكرر جداً
